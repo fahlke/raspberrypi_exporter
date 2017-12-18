@@ -36,7 +36,7 @@ declare -a FREQ_COMPONENTS=("arm" "core" "h264" "isp" "v3d" "uart" "pwm" "emmc" 
 for FREQ_COMPONENT in "${FREQ_COMPONENTS[@]}"; do
   unset FREQUENCE
 
-  FREQUENCE="$($VCGEN measure_clock "${FREQ_COMPONENT}" | awk '{split($0,a,"="); print a[2]}')" || true
+  FREQUENCE="$($VCGEN measure_clock "${FREQ_COMPONENT}" | cut -d '=' -f 2)" || true
   FREQUENCE="${FREQUENCE:=0}"
 
   echo "${PREFIX}frequency{component=\"${FREQ_COMPONENT}\"} ${FREQUENCE}" >> "${TMP_FILE}"
@@ -51,7 +51,7 @@ declare -a VOLT_COMPONENTS=("core" "sdram_c" "sdram_i" "sdram_p")
 for VOLT_COMPONENT in "${VOLT_COMPONENTS[@]}"; do
   unset VOLTS
 
-  VOLTS="$($VCGEN measure_volts "${VOLT_COMPONENT}" | awk '{split($0,a,"="); print a[2]}' | sed 's/V$//')" || true
+  VOLTS="$($VCGEN measure_volts "${VOLT_COMPONENT}" | cut -d '=' -f 2 | sed 's/V$//')" || true
   VOLTS="${VOLTS:=0}"
 
   echo "${PREFIX}voltage{component=\"${VOLT_COMPONENT}\"} ${VOLTS}" >> "${TMP_FILE}"
@@ -66,7 +66,7 @@ declare -a MEM_COMPONENTS=("arm" "gpu")
 for MEM_COMPONENT in "${MEM_COMPONENTS[@]}"; do
   unset MEM
 
-  MEM="$($VCGEN get_mem "${MEM_COMPONENT}" | awk '{split($0,a,"="); print a[2]}' | sed 's/M$//')" || true
+  MEM="$($VCGEN get_mem "${MEM_COMPONENT}" | cut -d '=' -f 2 | sed 's/M$//')" || true
   MEM="${MEM:=0}"
   MEM="$(( MEM * 1024 * 1024 ))"
 
