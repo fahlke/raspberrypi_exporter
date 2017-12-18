@@ -7,7 +7,7 @@ METRICS_FILE="/var/lib/node_exporter/textfile_collector/raspberrypi-metrics.prom
 TMP_FILE="${METRICS_FILE}.tmp"
 PREFIX="rpi_"
 
-# remove existing temp-file to avoid double entries
+# remove existing files
 rm -f "${TMP_FILE}"
 
 # get CPU temperature
