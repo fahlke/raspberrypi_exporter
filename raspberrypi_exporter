@@ -1,0 +1,76 @@
+#!/bin/bash
+
+set -eu
+
+VCGEN="$(command -v vcgencmd)"
+METRICS_FILE="/var/lib/node_exporter/textfile_collector/raspberrypi-metrics.prom"
+TMP_FILE="${METRICS_FILE}.tmp"
+PREFIX="rpi_"
+
+# remove existing temp-file to avoid double entries
+rm -f "${TMP_FILE}"
+
+# get CPU temperature
+unset CPU_TEMP_CELSIUS
+CPU_TEMP_CELSIUS="$(awk '{printf "%.1f", $1/1000}' /sys/class/thermal/thermal_zone0/temp)" || true
+CPU_TEMP_CELSIUS="${CPU_TEMP_CELSIUS:=0}"
+{
+  echo "# HELP ${PREFIX}temperature_cpu Temperature of the CPU in degree celsius.";
+  echo "# TYPE ${PREFIX}temperature_cpu gauge";
+  echo "${PREFIX}temperature_cpu ${CPU_TEMP_CELSIUS}";
+} >> "${TMP_FILE}"
+
+# get SoC temperature
+unset TEMP_BCM2835
+TEMP_BCM2835="$($VCGEN measure_temp | awk '{split($0,a,"="); print a[2]}' | sed 's/\x27C$//')" || true
+TEMP_BCM2835="${TEMP_BCM2835:=0}"
+{
+  echo "# HELP ${PREFIX}temperature_bcm2835 Temperature of the BCM2835 SoC in degree celsius.";
+  echo "# TYPE ${PREFIX}temperature_bcm2835 gauge";
+  echo "${PREFIX}temperature_bcm2835 ${TEMP_BCM2835}";
+} >> "${TMP_FILE}"
+
+# get component frequencies
+declare -a FREQ_COMPONENTS=("arm" "core" "h264" "isp" "v3d" "uart" "pwm" "emmc" "pixel" "hdmi")
+for FREQ_COMPONENT in "${FREQ_COMPONENTS[@]}"; do
+  unset FREQUENCE
+  FREQUENCE="$($VCGEN measure_clock "${FREQ_COMPONENT}" | awk '{split($0,a,"="); print a[2]}')" || true
+  FREQUENCE="${FREQUENCE:=0}"
+  {
+    echo "# HELP ${PREFIX}frequency_${FREQ_COMPONENT} Clock frequency of ${FREQ_COMPONENT} in hertz.";
+    echo "# TYPE ${PREFIX}frequency_${FREQ_COMPONENT} gauge";
+    echo "${PREFIX}frequency_${FREQ_COMPONENT} ${FREQUENCE}";
+  } >> "${TMP_FILE}"
+done
+
+# get component voltages
+declare -a VOLT_COMPONENTS=("core" "sdram_c" "sdram_i" "sdram_p")
+for VOLT_COMPONENT in "${VOLT_COMPONENTS[@]}"; do
+  unset VOLTS
+  VOLTS="$($VCGEN measure_volts "${VOLT_COMPONENT}" | awk '{split($0,a,"="); print a[2]}' | sed 's/V$//')" || true
+  VOLTS="${VOLTS:=0}"
+  {
+    echo "# HELP ${PREFIX}voltage_${VOLT_COMPONENT} Voltage of ${VOLT_COMPONENT} in volts.";
+    echo "# TYPE ${PREFIX}voltage_${VOLT_COMPONENT} gauge";
+    echo "${PREFIX}voltage_${VOLT_COMPONENT} ${VOLTS}";
+  } >> "${TMP_FILE}"
+done
+
+# get memory split of CPU vs GPU
+declare -a MEM_COMPONENTS=("arm" "gpu")
+for MEM_COMPONENT in "${MEM_COMPONENTS[@]}"; do
+  unset MEM
+  MEM="$($VCGEN get_mem "${MEM_COMPONENT}" | awk '{split($0,a,"="); print a[2]}' | sed 's/M$//')" || true
+  MEM="${MEM:=0}"
+  MEM="$(( MEM * 1024 * 1024 ))"
+  {
+    echo "# HELP ${PREFIX}memory_${MEM_COMPONENT} Memory split assigned to ${MEM_COMPONENT} in bytes.";
+    echo "# TYPE ${PREFIX}memory_${MEM_COMPONENT} gauge";
+    echo "${PREFIX}memory_${MEM_COMPONENT} ${MEM}";
+  } >> "${TMP_FILE}"
+done
+
+# write metrics file
+mv "${TMP_FILE}" "${METRICS_FILE}"
+
+exit 0
