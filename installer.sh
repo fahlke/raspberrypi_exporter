@@ -6,12 +6,8 @@ if [[ $EUID -ne 0 ]]; then
   exit 1
 fi
 
-# prerequisites
-## install curl to download the binaries
-apt-get update && apt-get install -y curl
-
 curl -sL "https://github.com/fahlke/raspberrypi_exporter/archive/master.zip" > "/tmp/raspberrypi_exporter.zip"
-unzip -o "/tmp/raspberrypi_exporter.zip" -d "/tmp"
+unzip -qq -o "/tmp/raspberrypi_exporter.zip" -d "/tmp"
 
 mkdir -p "/var/lib/node_exporter/textfile_collector"
 
