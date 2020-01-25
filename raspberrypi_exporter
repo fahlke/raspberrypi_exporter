@@ -26,6 +26,13 @@ for SENSOR in $(ls /sys/class/thermal/); do
 
   echo "${PREFIX}temperature{sensor=\"${SENSOR}\",type=\"${CPU_TYPE}\"} ${CPU_TEMP_CELSIUS}" >> "${TMP_FILE}"
 done
+{
+  echo "# HELP ${PREFIX}gpu_temperature Temperatures of the components in degree celsius.";
+  echo "# TYPE ${PREFIX}gpu_temperature gauge";
+} >> "${TMP_FILE}"
+GPU_TEMP_CELSIUS="$( $VCGEN measure_temp | cut -d'=' -f2 | cut -d"'" -f1 )" || true
+GPU_TEMP_CELSIUS="${GPU_TEMP_CELSIUS:=0}"
+echo "${PREFIX}gpu_temperature{sensor=\"bcm2835\",type=\"gpu\"} ${GPU_TEMP_CELSIUS}" >> "${TMP_FILE}"
 
 # get component frequencies
 {
