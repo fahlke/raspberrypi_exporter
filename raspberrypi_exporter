@@ -19,12 +19,14 @@ for SENSOR in $(ls /sys/class/thermal/); do
   unset CPU_TEMP_CELSIUS
   unset CPU_TYPE
 
-  CPU_TEMP_CELSIUS="$(awk '{printf "%.3f", $1/1000}' /sys/class/thermal/${SENSOR}/temp)" || true
-  CPU_TEMP_CELSIUS="${CPU_TEMP_CELSIUS:=0}"
-  CPU_TYPE="$(cat /sys/class/thermal/${SENSOR}/type)"
-  CPU_TYPE="${CPU_TYPE:=N/A}"
+  if [ -f "/sys/class/thermal/${SENSOR}/temp" ]; then
+    CPU_TEMP_CELSIUS="$(awk '{printf "%.3f", $1/1000}' /sys/class/thermal/${SENSOR}/temp)" || true
+    CPU_TEMP_CELSIUS="${CPU_TEMP_CELSIUS:=0}"
+    CPU_TYPE="$(cat /sys/class/thermal/${SENSOR}/type)"
+    CPU_TYPE="${CPU_TYPE:=N/A}"
 
-  echo "${PREFIX}temperature{sensor=\"${SENSOR}\",type=\"${CPU_TYPE}\"} ${CPU_TEMP_CELSIUS}" >> "${TMP_FILE}"
+    echo "${PREFIX}temperature{sensor=\"${SENSOR}\",type=\"${CPU_TYPE}\"} ${CPU_TEMP_CELSIUS}" >> "${TMP_FILE}"
+  fi
 done
 
 # get component frequencies
