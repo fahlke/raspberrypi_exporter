@@ -19,12 +19,14 @@ for SENSOR in $(ls /sys/class/thermal/); do
   unset CPU_TEMP_CELSIUS
   unset CPU_TYPE
 
-  CPU_TEMP_CELSIUS="$(awk '{printf "%.3f", $1/1000}' /sys/class/thermal/${SENSOR}/temp)" || true
-  CPU_TEMP_CELSIUS="${CPU_TEMP_CELSIUS:=0}"
-  CPU_TYPE="$(cat /sys/class/thermal/${SENSOR}/type)"
-  CPU_TYPE="${CPU_TYPE:=N/A}"
+  if [ -f "/sys/class/thermal/${SENSOR}/temp" ]; then
+    CPU_TEMP_CELSIUS="$(awk '{printf "%.3f", $1/1000}' /sys/class/thermal/${SENSOR}/temp)" || true
+    CPU_TEMP_CELSIUS="${CPU_TEMP_CELSIUS:=0}"
+    CPU_TYPE="$(cat /sys/class/thermal/${SENSOR}/type)"
+    CPU_TYPE="${CPU_TYPE:=N/A}"
 
-  echo "${PREFIX}temperature{sensor=\"${SENSOR}\",type=\"${CPU_TYPE}\"} ${CPU_TEMP_CELSIUS}" >> "${TMP_FILE}"
+    echo "${PREFIX}temperature{sensor=\"${SENSOR}\",type=\"${CPU_TYPE}\"} ${CPU_TEMP_CELSIUS}" >> "${TMP_FILE}"
+  fi
 done
 
 # get component frequencies
@@ -72,6 +74,32 @@ for MEM_COMPONENT in "${MEM_COMPONENTS[@]}"; do
 
   echo "${PREFIX}memory{component=\"${MEM_COMPONENT}\"} ${MEM}" >> "${TMP_FILE}"
 done
+
+# get throttled flags
+{
+  echo "# HELP ${PREFIX}throttled Throttled state of the system.";
+  echo "# TYPE ${PREFIX}throttled gauge";
+} >> "${TMP_FILE}"
+THROTTLED="$($VCGEN get_throttled | cut -d '=' -f 2 | sed 's/M$//')" || true
+THROTTLED=${THROTTLED:=0x0}
+declare -a THROTTLED_COMPONENTS=(
+  "0:under_voltage_detected"
+  "1:arm_freq_capped"
+  "2:currently_throttled"
+  "3:soft_temp_limit_active"
+  "16:under_voltage_occured"
+  "17:arm_freq_capping_occured"
+  "18:throttling_occured"
+  "19:soft_temp_limit_occured"
+)
+for THROTTLED_COMPONENT in "${THROTTLED_COMPONENTS[@]}"; do
+  unset BIT
+
+  BIT=$(perl -e "printf(($THROTTLED>>${THROTTLED_COMPONENT/%:*/})&1)")
+
+  echo "${PREFIX}throttled{bit=\"${THROTTLED_COMPONENT/%:*/}\",name=\"${THROTTLED_COMPONENT/#*:}\"} ${BIT}" >> "${TMP_FILE}"
+done
+unset THROTTLED
 
 # write metrics file
 mv "${TMP_FILE}" "${METRICS_FILE}"
